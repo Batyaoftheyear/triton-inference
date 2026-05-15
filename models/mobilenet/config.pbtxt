@@ -1,0 +1,30 @@
+name: "mobilenet"
+backend: "python"
+max_batch_size: 8
+
+input [
+  {
+    name: "IMAGE"
+    data_type: TYPE_FP32
+    dims: [3, 224, 224]
+  }
+]
+
+output [
+  {
+    name: "OUTPUT"
+    data_type: TYPE_FP32
+    dims: [1000]
+  }
+]
+
+dynamic_batching {
+  max_queue_delay_microseconds: 1000
+}
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
