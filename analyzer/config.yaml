@@ -1,0 +1,20 @@
+model_repository: /models
+run_config_search_disable: true
+client_protocol: http
+concurrency: [1, 2, 4]
+batch_sizes: [1, 2, 4]
+
+profile_models:
+  mobilenet:
+    model_config_parameters:
+      max_batch_size: [1, 4, 8]
+      dynamic_batching:
+        max_queue_delay_microseconds: [100, 1000, 5000]
+      instance_group:
+        - kind: KIND_CPU
+          count: [1, 2]
+
+perf_analyzer_flags:
+  input-data: random
+  shape:
+    - IMAGE:3,224,224

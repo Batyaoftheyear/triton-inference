@@ -10,29 +10,25 @@ import triton_python_backend_utils as pb_utils
 class TritonPythonModel:
     def initialize(self, args):
         self.device = torch.device("cpu")
-
-        weights = MobileNet_V2_Weights.DEFAULT
-        self.model = mobilenet_v2(weights=weights)
+        self.model = mobilenet_v2(weights=MobileNet_V2_Weights.DEFAULT)
         self.model.to(self.device)
         self.model.eval()
 
-        # Метрика суммарного времени обработки запросов
-        self.time_metric_family = pb_utils.MetricFamily(
+        self.processing_time_family = pb_utils.MetricFamily(
             name="custom_processing_time_seconds_total",
             description="Total processing time in seconds",
             kind=pb_utils.MetricFamily.COUNTER,
         )
-        self.time_metric = self.time_metric_family.Metric(
+        self.processing_time_metric = self.processing_time_family.Metric(
             labels={"model": "mobilenet"}
         )
 
-        # Метрика текущего числа запросов в обработке
-        self.requests_metric_family = pb_utils.MetricFamily(
+        self.requests_in_progress_family = pb_utils.MetricFamily(
             name="custom_requests_in_progress",
             description="Current number of requests in progress",
             kind=pb_utils.MetricFamily.GAUGE,
         )
-        self.requests_metric = self.requests_metric_family.Metric(
+        self.requests_in_progress_metric = self.requests_in_progress_family.Metric(
             labels={"model": "mobilenet"}
         )
 
@@ -40,36 +36,38 @@ class TritonPythonModel:
 
     def execute(self, requests):
         responses = []
+        requests_count = len(requests)
 
-        self.requests_in_progress += len(requests)
-        self.requests_metric.set(self.requests_in_progress)
-
+        self.requests_in_progress += requests_count
+        self.requests_in_progress_metric.set(self.requests_in_progress)
         start_time = time.perf_counter()
 
         try:
             for request in requests:
-                input_tensor = pb_utils.get_input_tensor_by_name(request, "IMAGE")
-                image = input_tensor.as_numpy().astype(np.float32)
+                try:
+                    input_tensor = pb_utils.get_input_tensor_by_name(request, "IMAGE")
+                    image = input_tensor.as_numpy().astype(np.float32)
+                    image_tensor = torch.from_numpy(image).to(self.device)
 
-                image = torch.from_numpy(image).to(self.device)
+                    with torch.no_grad():
+                        output_tensor = self.model(image_tensor)
 
-                with torch.no_grad():
-                    output = self.model(image)
+                    output_np = output_tensor.cpu().numpy().astype(np.float32)
+                    response = pb_utils.InferenceResponse(
+                        output_tensors=[pb_utils.Tensor("OUTPUT", output_np)]
+                    )
+                except Exception as exc:
+                    response = pb_utils.InferenceResponse(
+                        error=pb_utils.TritonError(str(exc))
+                    )
 
-                output = output.cpu().numpy().astype(np.float32)
-                output_tensor = pb_utils.Tensor("OUTPUT", output)
-
-                responses.append(
-                    pb_utils.InferenceResponse(output_tensors=[output_tensor])
-                )
-
+                responses.append(response)
         finally:
             elapsed_time = time.perf_counter() - start_time
+            self.processing_time_metric.increment(elapsed_time)
 
-            self.time_metric.increment(elapsed_time)
-
-            self.requests_in_progress -= len(requests)
-            self.requests_metric.set(self.requests_in_progress)
+            self.requests_in_progress -= requests_count
+            self.requests_in_progress_metric.set(self.requests_in_progress)
 
         return responses
 

@@ -1,0 +1,2 @@
+pillow==10.4.0
+tritonclient[http]==2.41.0
