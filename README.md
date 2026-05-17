@@ -157,15 +157,7 @@ Default-конфигурация:
 
 - `p99 latency = 176.84 ms`
 - `throughput = 39.9566 infer/sec`
+- 
+## Вывод
 
-Вывод: лучшей оказалась `mobilenet_config_13`. Она примерно на `18%` лучше default по throughput и при этом даёт более низкую `p99 latency`, чем `mobilenet_config_14` и `mobilenet_config_8`. Для этого проекта самым удачным вариантом оказался режим `max_batch_size = 4`, `dynamic_batching enabled`, `1 CPU instance`.
-
-## Итог
-
-Получился рабочий проект на Triton:
-
-- сервер собирается и запускается в Docker
-- модель отвечает на HTTP/gRPC запросы
-- клиентский скрипт работает
-- кастомные метрики публикуются
-- `Performance Analyzer` и `Model Analyzer` отработали, результаты сохранены в `results`
+Лучшей оказалась `mobilenet_config_13`. Она примерно на `18%` лучше default по throughput и при этом даёт более низкую `p99 latency`, чем `mobilenet_config_14` и `mobilenet_config_8`. Для этого проекта самым удачным вариантом оказался режим `max_batch_size = 4`, `dynamic_batching enabled`, `1 CPU instance`.
